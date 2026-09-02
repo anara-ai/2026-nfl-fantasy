@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#101215">
+<title>Draft Board</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+--bg:#101215; --s1:#181b20; --s2:#1f232a; --s3:#272c34;
+--tx:#eef1f5; --t2:#a2abb8; --t3:#6f7885;
+--bd:#2a2f37; --bd2:#3a414b;
+--ok:#4ea87a; --okbg:#16281f; --bad:#d9605c; --badbg:#2b1918;
+--warn:#d99a3f; --warnbg:#2a2114; --acc:#5b93d6; --accbg:#16222f;
+--safe:20px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+font-size:16px;line-height:1.45;overscroll-behavior-y:none}
+body{padding-bottom:calc(62px + env(safe-area-inset-bottom))}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer}
+.hd{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--bd);
+padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+.hdrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hdl{font-size:12px;color:var(--t3)}
+.hdb{font-size:17px;font-weight:600;letter-spacing:-.2px}
+.chip{font-size:11px;padding:4px 9px;border-radius:20px;background:var(--s2);color:var(--t2);white-space:nowrap}
+.chip.on{background:var(--accbg);color:#9cc4ee}
+.filters{display:flex;gap:5px;margin-top:8px}
+.fbtn{flex:1;text-align:center;font-size:13px;padding:8px 0;border-radius:8px;background:var(--s2);color:var(--t2);min-height:36px}
+.fbtn.on{background:var(--tx);color:var(--bg);font-weight:600}
+.srch{width:100%;margin-top:8px;padding:9px 12px;border-radius:8px;background:var(--s2);
+border:1px solid var(--bd);color:var(--tx);font-size:16px}
+.srch::placeholder{color:var(--t3)}
+.alert{margin:0;padding:9px 12px;font-size:13px;background:var(--warnbg);color:#f0c078;border-bottom:1px solid var(--bd)}
+.bestcard{margin:0;padding:10px 12px;background:var(--accbg);border-bottom:1px solid var(--bd)}
+.bestl{font-size:11px;color:#7fb0e0;text-transform:uppercase;letter-spacing:.5px}
+.bestn{font-size:16px;font-weight:600;color:#cfe2f7;margin-top:1px}
+.bestm{font-size:12px;color:#8fb4d9;font-weight:400}
+.tierhd{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;
+background:var(--s1);font-size:11px;color:var(--t3);letter-spacing:.4px;
+position:sticky;top:0;z-index:10;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--bd);
+border-left:3px solid transparent;min-height:58px;position:relative}
+.row.gone{opacity:.32}
+.row.mine{background:#141f19;border-left-color:var(--ok)}
+.rk{font-size:13px;color:var(--t3);width:26px;flex:0 0 26px;text-align:right;font-variant-numeric:tabular-nums}
+.mid{flex:1;min-width:0}
+.nm{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gone .nm{text-decoration:line-through}
+.meta{font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .w{color:var(--warn)}.meta .g{color:var(--ok)}.meta .r{color:var(--bad)}
+.badge{font-size:11px;padding:3px 8px;border-radius:20px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bg-ok{background:var(--okbg);color:#7fd3a5}.bg-bad{background:var(--badbg);color:#f09995}
+.dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.exp{padding:2px 12px 14px 48px;background:var(--s1);border-bottom:1px solid var(--bd)}
+.srcgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0}
+.sc{background:var(--s2);border-radius:6px;padding:5px 2px;text-align:center}
+.sc .l{font-size:9px;color:var(--t3)}.sc .v{font-size:13px;font-variant-numeric:tabular-nums}
+.sc.hi{background:var(--okbg)}.sc.lo{background:var(--badbg)}
+.expline{font-size:12px;color:var(--t2);margin:6px 0}
+.newsbox{font-size:12.5px;padding:8px 10px;border-radius:8px;margin:8px 0;line-height:1.45}
+.n3{background:var(--badbg);color:#f0a9a5}.n2{background:var(--warnbg);color:#e8bd7e}
+.n1{background:var(--s2);color:var(--t2)}.n0{background:var(--okbg);color:#8fd8ae}
+.acts{display:flex;gap:8px;margin-top:10px}
+.act{flex:1;text-align:center;font-size:13.5px;padding:11px 0;border-radius:8px;min-height:44px}
+.a-mine{background:var(--ok);color:#06140d;font-weight:600}
+.a-gone{background:var(--s3);color:var(--t2)}
+.a-undo{background:var(--s3);color:var(--t2)}
+.tabs{position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;background:var(--s1);
+border-top:1px solid var(--bd2);padding-bottom:env(safe-area-inset-bottom)}
+.tab{flex:1;text-align:center;padding:8px 0 6px;color:var(--t3);font-size:10.5px}
+.tab.on{color:var(--acc)}
+.tab .ic{font-size:19px;line-height:1.25}
+.pane{display:none}.pane.on{display:block}
+.sec{padding:14px 12px;border-bottom:1px solid var(--bd)}
+.sech{font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+h2{font-size:16px;font-weight:600;margin:0 0 6px}
+p{margin:0 0 8px;font-size:14px;color:var(--t2);line-height:1.55}
+.slot{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--bd);min-height:46px}
+.slotl{font-size:11px;color:var(--t3);width:46px;flex:0 0 46px}
+.slotv{flex:1;font-size:14px}.slotv.empty{color:var(--t3);font-style:italic}
+.needs{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
+.need{font-size:12px;padding:5px 10px;border-radius:20px;background:var(--s2);color:var(--t2)}
+.need.hot{background:var(--warnbg);color:#f0c078}
+.pk{border-bottom:1px solid var(--bd)}
+.pkh{display:flex;align-items:center;gap:10px;padding:12px;min-height:52px}
+.pkn{font-size:12px;color:var(--t3);width:52px;flex:0 0 52px}
+.pkt{flex:1;font-size:14.5px;font-weight:500}
+.pk.done{opacity:.4}.pk.now{background:var(--accbg)}
+.pkb{padding:0 12px 14px 12px}
+.tg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tgi{font-size:12.5px;padding:6px 10px;border-radius:8px;background:var(--s2);color:var(--t2)}
+.tgi.avail{background:var(--okbg);color:#8fd8ae}.tgi.gone{background:var(--s2);color:var(--t3);text-decoration:line-through}
+.acc{border-bottom:1px solid var(--bd)}
+.acch{padding:13px 12px;font-size:14.5px;display:flex;justify-content:space-between;gap:10px;min-height:48px;align-items:center}
+.accb{padding:0 12px 14px}
+.kv{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.kvk{width:104px;flex:0 0 104px;color:var(--t3)}.kvv{flex:1;color:var(--t2)}
+.byerow{display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid var(--bd);font-size:13.5px}
+.byew{width:52px;flex:0 0 52px;color:var(--t3)}
+.byew.trap{color:var(--warn);font-weight:600}
+.toast{position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:200;
+background:var(--s3);border:1px solid var(--bd2);border-radius:10px;padding:11px 14px;
+display:none;align-items:center;justify-content:space-between;gap:12px;font-size:13.5px}
+.toast.on{display:flex}
+.tundo{color:var(--acc);font-weight:600;font-size:13.5px;padding:4px 6px}
+.empty{padding:36px 20px;text-align:center;color:var(--t3);font-size:14px}
+.danger{color:var(--bad)}
+.mini{font-size:11.5px;color:var(--t3);padding:10px 12px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div class="toast" id="toast"><span id="toastmsg"></span><button class="tundo" onclick="undo()">Undo</button></div>
+
+<nav class="tabs">
+  <button class="tab on" data-tab="board"><div class="ic">☰</div>Board</button>
+  <button class="tab" data-tab="team"><div class="ic">◈</div>My team</button>
+  <button class="tab" data-tab="plan"><div class="ic">◎</div>Plan</button>
+  <button class="tab" data-tab="intel"><div class="ic">ⓘ</div>Intel</button>
+</nav>
+
+<script src="data.js"></script>
+<script>
+var D = window.DRAFT_DATA, P = D.players;
+var byName = {}; P.forEach(function(p){ byName[p.n] = p; });
+var KEY = "draft2026.v1";
+var st = load(), hist = [], tab = "board", filter = "ALL", q = "", open = null, toastT = null;
+
+function load(){
+  try{ var r = localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){}
+  return { gone:{}, mine:[], order:[] };
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
+
+function picksMade(){ return st.order.length; }
+function nextPick(){
+  var n = picksMade() + 1;
+  for(var i=0;i<D.league.picks.length;i++){ if(D.league.picks[i] >= n) return D.league.picks[i]; }
+  return null;
+}
+function untilMine(){ var np = nextPick(); return np === null ? null : np - (picksMade()+1); }
+
+function mark(id, isMine){
+  var p = P.filter(function(x){return x.id===id;})[0]; if(!p) return;
+  hist.push(JSON.parse(JSON.stringify(st)));
+  if(hist.length>40) hist.shift();
+  st.gone[id] = true;
+  st.order.push(id);
+  if(isMine && st.mine.indexOf(id)<0) st.mine.push(id);
+  save(); render();
+  toast((isMine?"Added ":"Marked gone: ")+p.n);
+}
+function undo(){
+  if(!hist.length) return;
+  st = hist.pop(); save(); render(); hideToast();
+}
+function unmark(id){
+  hist.push(JSON.parse(JSON.stringify(st)));
+  delete st.gone[id];
+  st.order = st.order.filter(function(x){return x!==id;});
+  st.mine = st.mine.filter(function(x){return x!==id;});
+  save(); render(); toast("Put back on the board");
+}
+function toast(m){
+  var t=document.getElementById("toast");
+  document.getElementById("toastmsg").textContent=m;
+  t.classList.add("on"); clearTimeout(toastT);
+  toastT=setTimeout(hideToast,4000);
+}
+function hideToast(){ document.getElementById("toast").classList.remove("on"); }
+
+function runAlert(){
+  var last = st.order.slice(-6);
+  if(last.length < 5) return null;
+  var c = {};
+  last.forEach(function(id){
+    var p = P.filter(function(x){return x.id===id;})[0];
+    if(p && ["RB","WR","TE","QB"].indexOf(p.p)>=0) c[p.p]=(c[p.p]||0)+1;
+  });
+  for(var k in c){ if(c[k]>=4) return k+" run — "+c[k]+" of the last "+last.length+" picks"; }
+  return null;
+}
+function myByes(){
+  var b={}; st.mine.forEach(function(id){
+    var p=P.filter(function(x){return x.id===id;})[0];
+    if(p && ["RB","WR","TE","QB"].indexOf(p.p)>=0) b[p.b]=(b[p.b]||0)+1;
+  }); return b;
+}
+function needs(){
+  var have={QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
+  st.mine.forEach(function(id){ var p=P.filter(function(x){return x.id===id;})[0]; if(p) have[p.p]=(have[p.p]||0)+1; });
+  var req={QB:1,RB:2,WR:2,TE:1,K:1,DEF:1};
+  var out=[];
+  for(var k in req){ if(have[k]<req[k]) out.push({p:k, n:req[k]-have[k], hot:(have[k]===0 && ["RB","WR"].indexOf(k)>=0)}); }
+  return {have:have, missing:out};
+}
+function bestAvail(){
+  var nd = needs().missing.map(function(x){return x.p;});
+  var pool = P.filter(function(p){ return !st.gone[p.id] && p.mean; });
+  pool.sort(function(a,b){return a.rk-b.rk;});
+  if(!pool.length) return null;
+  var byNeed = pool.filter(function(p){ return nd.indexOf(p.p)>=0; });
+  return { top: pool[0], need: (byNeed.length && byNeed[0].id!==pool[0].id) ? byNeed[0] : null, needList: nd };
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+function playerRow(p){
+  var isGone = !!st.gone[p.id], isMine = st.mine.indexOf(p.id)>=0;
+  var cls = "row" + (isGone && !isMine ? " gone":"") + (isMine?" mine":"");
+  var tierColors = ["#7f77dd","#5b93d6","#1d9e75","#639922","#ba7517","#d85a30","#a32d2d","#5f5e5a"];
+  var tc = p.tier ? tierColors[Math.min(p.tier-1,7)] : "#3a414b";
+  var bb = myByes(), byeFlag = "";
+  if(st.mine.length && bb[p.b]>=2 && ["RB","WR","TE","QB"].indexOf(p.p)>=0) byeFlag = ' · <span class="w">bye '+p.b+' × '+(bb[p.b]+1)+'</span>';
+  var meta = p.p+" · "+p.t+" · bye "+p.b + byeFlag;
+  if(p.sev!==null && p.sev!==undefined && p.news){
+    var short = p.news.split(".")[0];
+    var c = p.sev>=2 ? "r" : (p.sev===0 ? "g" : "w");
+    meta = p.p+" · "+p.t+' · <span class="'+c+'">'+esc(short)+"</span>" + byeFlag;
+  }
+  var badge = "";
+  if(p.sg) badge = '<span class="badge '+(p.gap>0?"bg-ok":"bg-bad")+'">'+(p.gap>0?"+":"")+Math.round(p.gap)+'</span>';
+  else if(p.sev!==null && p.sev!==undefined && p.sev>=2) badge = '<span class="dot" style="background:'+(p.sev===3?"var(--bad)":"var(--warn)")+'"></span>';
+  var rkTxt = p.mean ? p.rk : "–";
+  return '<div class="'+cls+'" style="border-left-color:'+tc+'" onclick="tapRow('+p.id+')">'+
+    '<div class="rk">'+rkTxt+'</div><div class="mid"><div class="nm">'+esc(p.n)+'</div>'+
+    '<div class="meta">'+meta+'</div></div>'+badge+'</div>' +
+    (open===p.id ? expanded(p) : "");
+}
+function expanded(p){
+  var h = '<div class="exp">';
+  if(p.mean){
+    var ks = ["Yahoo","ADP","FFC","CBS","JE","DS","Mine"], vals=[];
+    ks.forEach(function(k){ if(p.src[k]) vals.push(p.src[k]); });
+    var mn = Math.min.apply(null,vals), mx = Math.max.apply(null,vals);
+    h += '<div class="srcgrid">';
+    ks.forEach(function(k){
+      var v = p.src[k];
+      var c = v===mn && vals.length>2 ? " hi" : (v===mx && vals.length>2 ? " lo":"");
+      h += '<div class="sc'+(v?c:"")+'"><div class="l">'+k+'</div><div class="v">'+(v||"–")+'</div></div>';
+    });
+    h += '</div>';
+    h += '<div class="expline">Range '+p.lo+'–'+p.hi+' · spread '+p.sd+' · '+p.ns+' sources</div>';
+    var bits = [];
+    if(p.gap!==null) bits.push(p.gap>0 ? "experts rank him "+Math.abs(Math.round(p.gap))+" spots above the market" : "the market drafts him "+Math.abs(Math.round(p.gap))+" spots early");
+    if(p.yd!==null && Math.abs(p.yd)>=5) bits.push(p.yd>0 ? "Yahoo ranks him "+Math.round(p.yd)+" lower, so he should last" : "Yahoo ranks him "+Math.abs(Math.round(p.yd))+" higher — goes early in your room");
+    if(p.inj) bits.push("injury risk "+p.inj+"%");
+    if(bits.length) h += '<div class="expline">'+esc(bits.join(" · "))+'</div>';
+  }
+  if(p.news) h += '<div class="newsbox n'+p.sev+'">'+esc(p.news)+'</div>';
+  if(p.hc){ var b=byName[p.hc]; h += '<div class="expline">Handcuff: <b>'+esc(p.hc)+'</b>'+(b&&st.gone[b.id]?" (gone)":"")+'</div>'; }
+  if(p.hcof) h += '<div class="expline">Behind <b>'+esc(p.hcof)+'</b> on the depth chart</div>';
+  if(p.cont) h += '<div class="expline w">⚠ '+esc(p.cont)+'</div>';
+  h += '<div class="acts">';
+  if(st.gone[p.id]) h += '<div class="act a-undo" onclick="event.stopPropagation();unmark('+p.id+')">Put back on board</div>';
+  else h += '<div class="act a-mine" onclick="event.stopPropagation();mark('+p.id+',true)">Draft to my team</div>'+
+            '<div class="act a-gone" onclick="event.stopPropagation();mark('+p.id+',false)">Mark gone</div>';
+  h += '</div></div>';
+  return h;
+}
+function tapRow(id){ open = (open===id ? null : id); render(); }
+var pressT=null;
+document.addEventListener("touchstart",function(e){
+  var r=e.target.closest && e.target.closest(".row"); if(!r) return;
+  pressT=setTimeout(function(){
+    var m=r.getAttribute("onclick"); if(!m) return;
+    var id=parseInt(m.replace(/\D+/g,""),10);
+    if(st.gone[id]){ unmark(id); if(navigator.vibrate) navigator.vibrate(30); }
+  },550);
+},{passive:true});
+["touchend","touchmove","touchcancel"].forEach(function(ev){
+  document.addEventListener(ev,function(){ clearTimeout(pressT); },{passive:true});
+});
+
+function boardPane(){
+  var h = '<div class="hd"><div class="hdrow"><div>';
+  var um = untilMine();
+  h += '<div class="hdl">Pick '+(picksMade()+1)+' of 150</div>';
+  h += '<div class="hdb">'+(um===null?"Draft complete":(um===0?"You're on the clock":(um===1?"You're up next":"You're up in "+um)))+'</div>';
+  h += '</div><div class="chip'+(um!==null&&um<=2?" on":"")+'">'+(nextPick()?("your pick "+nextPick()):"—")+'</div></div>';
+  h += '<div class="filters">';
+  ["ALL","RB","WR","TE","QB","K/D"].forEach(function(f){
+    h += '<button class="fbtn'+(filter===f?" on":"")+'" onclick="setFilter(\''+f+'\')">'+f+'</button>';
+  });
+  h += '</div>';
+  h += '<input class="srch" id="srch" placeholder="Search player" value="'+esc(q)+'" oninput="setQ(this.value)">';
+  h += '</div>';
+
+  var ra = runAlert();
+  if(ra) h += '<div class="alert">'+esc(ra)+'</div>';
+
+  var ba = bestAvail();
+  if(ba && !q){
+    h += '<div class="bestcard"><div class="bestl">Best available</div>'+
+      '<div class="bestn">'+esc(ba.top.n)+' <span class="bestm">'+ba.top.p+' · '+ba.top.t+'</span></div>';
+    if(ba.need) h += '<div class="bestm" style="margin-top:3px">You still need '+ba.needList.join(", ")+' — best there is '+esc(ba.need.n)+'</div>';
+    h += '</div>';
+  }
+
+  var list = P.filter(function(p){
+    if(q){ return p.n.toLowerCase().indexOf(q.toLowerCase())>=0; }
+    if(st.gone[p.id]) return false;
+    if(filter==="ALL") return p.p!=="K" && p.p!=="DEF";
+    if(filter==="K/D") return p.p==="K" || p.p==="DEF";
+    return p.p===filter;
+  });
+  list.sort(function(a,b){return a.rk-b.rk;});
+  if(!list.length) return h + '<div class="empty">Nothing here. Try another filter or clear the search.</div>';
+
+  var lastTier = null;
+  list.forEach(function(p){
+    if(!q && p.tier && p.tier!==lastTier){
+      var left = P.filter(function(x){return x.tier===p.tier && !st.gone[x.id];}).length;
+      h += '<div class="tierhd"><span>TIER '+p.tier+' · '+left+' left</span>'+
+        (left<=3?'<span style="color:var(--warn)">tier break soon</span>':'')+'</div>';
+      lastTier = p.tier;
+    }
+    h += playerRow(p);
+  });
+  return h;
+}
+function setFilter(f){ filter=f; open=null; render(); }
+function setQ(v){
+  q=v; open=null;
+  var pane=document.getElementById("app");
+  var sel=document.activeElement===document.getElementById("srch");
+  render();
+  if(sel){ var s=document.getElementById("srch"); if(s){ s.focus(); s.setSelectionRange(v.length,v.length); } }
+}
+
+function teamPane(){
+  var slots=[["QB","QB"],["WR","WR1"],["WR","WR2"],["RB","RB1"],["RB","RB2"],["TE","TE"],["FLEX","W/R/T"],["K","K"],["DEF","DEF"]];
+  var mine = st.mine.map(function(id){return P.filter(function(x){return x.id===id;})[0];}).filter(Boolean);
+  var used = {}, fill = {};
+  slots.forEach(function(s,i){
+    var want = s[0];
+    for(var j=0;j<mine.length;j++){
+      var p=mine[j]; if(used[p.id]) continue;
+      if(want==="FLEX" ? ["RB","WR","TE"].indexOf(p.p)>=0 : p.p===want){ fill[i]=p; used[p.id]=1; break; }
+    }
+  });
+  var bench = mine.filter(function(p){return !used[p.id];});
+  var h = '<div class="hd"><div class="hdrow"><div><div class="hdl">'+mine.length+' drafted</div>'+
+    '<div class="hdb">My team</div></div><div class="chip">pick '+(nextPick()||"—")+'</div></div></div>';
+  var nd = needs();
+  h += '<div class="needs">';
+  if(!nd.missing.length) h += '<span class="need">Starting lineup complete</span>';
+  nd.missing.forEach(function(m){ h+='<span class="need'+(m.hot?" hot":"")+'">need '+m.n+' '+m.p+'</span>'; });
+  h += '</div>';
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">Starters</div>';
+  slots.forEach(function(s,i){
+    var p=fill[i];
+    h += '<div class="slot"><div class="slotl">'+s[1]+'</div><div class="slotv'+(p?"":" empty")+'">'+
+      (p ? esc(p.n)+' <span style="color:var(--t3);font-size:12px">'+p.t+' · bye '+p.b+'</span>' : "empty")+'</div></div>';
+  });
+  h += '</div>';
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">Bench ('+bench.length+')</div>';
+  if(!bench.length) h += '<div class="mini">Nothing on the bench yet.</div>';
+  bench.forEach(function(p){
+    h += '<div class="slot"><div class="slotl">BN</div><div class="slotv">'+esc(p.n)+
+      ' <span style="color:var(--t3);font-size:12px">'+p.p+' · '+p.t+' · bye '+p.b+'</span></div></div>';
+  });
+  h += '</div>';
+  var bb=myByes(), trouble=[];
+  for(var w in bb){ if(bb[w]>=3) trouble.push("Week "+w+": "+bb[w]+" starters off"); }
+  h += '<div class="sec"><div class="sech">Bye weeks</div>';
+  if(trouble.length) trouble.forEach(function(t){ h+='<p class="danger">'+esc(t)+'</p>'; });
+  else h += '<p>No week has three or more of your skill players off. Good.</p>';
+  h += '</div>';
+  var hcgaps = mine.filter(function(p){ return p.p==="RB" && p.hc && byName[p.hc] && !st.gone[byName[p.hc].id] && p.inj && p.inj>=50; });
+  if(hcgaps.length){
+    h += '<div class="sec"><div class="sech">Handcuffs still available</div>';
+    hcgaps.forEach(function(p){ h+='<p>'+esc(p.n)+' carries '+p.inj+'% injury risk. <b style="color:var(--tx)">'+esc(p.hc)+'</b> is still on the board.</p>'; });
+    h += '</div>';
+  }
+  h += '<div class="sec"><div class="sech">Reset</div><p>Clears every mark and starts the draft over. Cannot be undone.</p>'+
+    '<div class="act a-gone" style="max-width:180px" onclick="resetAll()">Reset draft</div></div>';
+  return h;
+}
+function resetAll(){
+  if(!confirm("Clear all drafted players and start over?")) return;
+  st={gone:{},mine:[],order:[]}; hist=[]; save(); render(); toast("Draft reset");
+}
+
+function planPane(){
+  var made = picksMade(), np = nextPick();
+  var h='<div class="hd"><div class="hdrow"><div><div class="hdl">10-team snake · pick 3</div>'+
+    '<div class="hdb">Game plan</div></div><div class="chip">'+(np?("next: "+np):"done")+'</div></div></div>';
+  D.plan.forEach(function(pl){
+    var done = made >= pl.pick, now = np===pl.pick;
+    h += '<div class="pk'+(done&&!now?" done":"")+(now?" now":"")+'">'+
+      '<div class="pkh" onclick="togglePk('+pl.pick+')"><div class="pkn">R'+pl.round+' · '+pl.pick+'</div>'+
+      '<div class="pkt">'+esc(pl.head)+'</div><div style="color:var(--t3)">'+(openPk===pl.pick?"▲":"▼")+'</div></div>';
+    if(openPk===pl.pick){
+      h += '<div class="pkb"><p>'+esc(pl.body)+'</p><div class="tg">';
+      pl.targets.forEach(function(t){
+        var p = byName[t];
+        var isMine = p && st.mine.indexOf(p.id)>=0;
+        var cls = !p ? "" : (isMine ? " avail" : (st.gone[p.id] ? " gone" : " avail"));
+        h += '<span class="tgi'+cls+'">'+esc(t)+(isMine?" ✓":"")+'</span>';
+      });
+      h += '</div></div>';
+    }
+    h += '</div>';
+  });
+  return h;
+}
+var openPk = 3;
+function togglePk(p){ openPk = (openPk===p?null:p); render(); }
+
+var openAcc = null;
+function toggleAcc(i){ openAcc = (openAcc===i?null:i); render(); }
+function intelPane(){
+  var h='<div class="hd"><div class="hdrow"><div><div class="hdl">Updated '+esc(D.updated)+'</div>'+
+    '<div class="hdb">Intel</div></div></div></div>';
+
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 4px">What changed in this update</div>';
+  D.changelog.forEach(function(c){ h += '<div class="mini"><b style="color:var(--t2)">'+esc(c[0])+'</b> — '+esc(c[1])+'</div>'; });
+  h += '</div>';
+
+  var flagged = P.filter(function(p){return p.news;}).sort(function(a,b){return (b.sev-a.sev)||(a.rk-b.rk);});
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">Watch list ('+flagged.length+')</div>';
+  flagged.forEach(function(p){
+    h += '<div class="acc"><div class="acch" onclick="toggleAcc(\'w'+p.id+'\')">'+
+      '<span><span class="dot" style="display:inline-block;background:'+
+      (p.sev===3?"var(--bad)":p.sev===2?"var(--warn)":p.sev===0?"var(--ok)":"var(--t3)")+';margin-right:8px"></span>'+
+      esc(p.n)+' <span style="color:var(--t3);font-size:12px">'+p.p+' · '+p.t+'</span></span>'+
+      '<span style="color:var(--t3)">'+(openAcc==='w'+p.id?"▲":"▼")+'</span></div>';
+    if(openAcc==='w'+p.id) h += '<div class="accb"><p>'+esc(p.news)+'</p></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">What the boards tell you</div>';
+  D.insights.forEach(function(x,i){
+    h += '<div class="acc"><div class="acch" onclick="toggleAcc(\'i'+i+'\')"><span>'+esc(x.h)+'</span>'+
+      '<span style="color:var(--t3)">'+(openAcc==='i'+i?"▲":"▼")+'</span></div>';
+    if(openAcc==='i'+i) h += '<div class="accb"><p>'+esc(x.b)+'</p></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">Bye weeks</div>';
+  Object.keys(D.byes).sort(function(a,b){return a-b;}).forEach(function(w){
+    var trap = D.byes[w].length>=4;
+    h += '<div class="byerow"><div class="byew'+(trap?" trap":"")+'">Wk '+w+'</div><div>'+D.byes[w].join(" · ")+'</div></div>';
+  });
+  h += '<div class="mini">'+esc(D.byeNote)+'</div></div>';
+
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">Sources</div>';
+  D.sources.forEach(function(s){
+    h += '<div style="padding:9px 12px;border-bottom:1px solid var(--bd)"><div style="font-size:14px">'+esc(s[0])+
+      ' <span style="color:var(--t3);font-size:11.5px">'+esc(s[2])+'</span></div>'+
+      '<div style="font-size:12px;color:var(--t3)">'+esc(s[1])+'</div>'+
+      '<div style="font-size:12.5px;color:var(--t2);margin-top:3px">'+esc(s[3])+'</div></div>';
+  });
+  h += '</div>';
+
+  h += '<div class="sec" style="padding:0"><div class="sech" style="padding:12px 12px 6px">How to read the numbers</div>';
+  D.method.forEach(function(m,i){
+    h += '<div class="acc"><div class="acch" onclick="toggleAcc(\'m'+i+'\')"><span>'+esc(m[0])+'</span>'+
+      '<span style="color:var(--t3)">'+(openAcc==='m'+i?"▲":"▼")+'</span></div>';
+    if(openAcc==='m'+i) h += '<div class="accb"><p>'+esc(m[1])+'</p></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="mini" style="padding:18px 12px 30px">Scoring: half-PPR, 4-pt passing TDs, 25 yds/pt passing vs 10 rushing, −1 INT, −2 fumbles lost. '+
+    'Kickers get 4 pts from 40–49 and 5 from 50+. Rushing quarterbacks and big-leg kickers are worth more here than in a default league.</div>';
+  return h;
+}
+
+function render(){
+  var el = document.getElementById("app");
+  var y = window.scrollY;
+  if(tab==="board") el.innerHTML = boardPane();
+  else if(tab==="team") el.innerHTML = teamPane();
+  else if(tab==="plan") el.innerHTML = planPane();
+  else el.innerHTML = intelPane();
+  window.scrollTo(0,y);
+  document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("on", t.dataset.tab===tab); });
+}
+document.querySelectorAll(".tab").forEach(function(t){
+  t.onclick = function(){ tab = t.dataset.tab; open=null; window.scrollTo(0,0); render(); };
+});
+render();
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
+</script>
+</body>
+</html>
