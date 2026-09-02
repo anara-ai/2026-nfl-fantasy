@@ -97,6 +97,8 @@ min-height:64px;background:var(--bg);transition:background .13s}
 .bdg{font:800 12px/1 -apple-system,sans-serif;padding:6px 8px;border-radius:6px;white-space:nowrap;flex:0 0 auto}
 .bdg.up{background:var(--okd);color:var(--ok)}.bdg.dn{background:var(--badd);color:var(--bad)}
 .sevdot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.w1{font:800 9px/1 -apple-system,sans-serif;letter-spacing:.06em;padding:3.5px 5px;border-radius:3.5px;flex:0 0 auto}
+.w1q{background:var(--goldd);color:var(--gold)}.w1o{background:var(--badd);color:var(--bad)}
 .caret{color:var(--t3);font-size:11px;flex:0 0 auto;transition:transform .22s var(--eas)}
 .caret.up{transform:rotate(180deg)}
 
@@ -278,6 +280,9 @@ function logo(t,sm){
     '<span class="lgf" style="background:'+c+'">'+t+'</span></div>';
 }
 function posChip(p){return '<span class="pc" style="background:'+(PC[p.p]||"var(--df)")+'">'+p.p+(p.pr||"")+'</span>';}
+function w1Tag(p){if(!p.w1)return "";
+  var cls=p.w1==="Q"?"w1q":"w1o";
+  return '<span class="w1 '+cls+'">'+(p.w1==="Q"?"Q WK1":p.w1)+'</span>';}
 
 function mark(id,mine){
   var p=byId[id];if(!p)return;
@@ -322,7 +327,7 @@ function playerView(p){
     '<img class="herologo" src="https://a.espncdn.com/i/teamlogos/nfl/500/'+slug+'.png" onerror="this.remove()" alt="">'+
     '<div class="hpos">'+logo(p.t,true)+'<span class="hposl">'+(TNAME[p.t]||p.t)+' · '+p.p+(p.pr?" "+p.pr:"")+'</span></div>'+
     '<div class="hname">'+esc(p.n)+'</div>'+
-    '<div class="hmeta">Bye week '+p.b+(p.rd?' · typically goes round '+p.rd:'')+
+    '<div class="hmeta">'+(p.w1?w1Tag(p)+' &nbsp;':'')+'Bye week '+p.b+(p.rd?' · typically goes round '+p.rd:'')+
     (mine?'<br><span style="color:var(--ok);font-weight:700">ON YOUR TEAM</span>':(gone?'<br><span style="color:var(--bad);font-weight:600">Taken by someone else</span>':''))+'</div></div>';
 
   if(p.mean){
@@ -356,6 +361,8 @@ function playerView(p){
   h+='<div class="blk"><div class="blkh">Detail</div>';
   function dl(k,v){if(v==null||v==="")return;h+='<div class="dl"><div class="dlk">'+k+'</div><div class="dlv">'+v+'</div></div>';}
   dl("Team",(TNAME[p.t]||p.t)+" · bye "+p.b);
+  if(p.w1)dl("Week 1",p.w1==="Q"?'<span style="color:var(--gold)">Questionable</span>':
+    p.w1==="OUT"?'<span style="color:var(--bad)">Out</span>':'<span style="color:var(--bad)">'+p.w1+'</span>');
   if(p.tier)dl("Tier",esc(p.tname||("Tier "+p.tier))+" · "+p.tsize+" players");
   if(p.yd!=null)dl("Your Yahoo room",p.yd>0?"ranks him "+Math.round(p.yd)+" lower than the field, so he lasts here":(p.yd<0?"ranks him "+Math.abs(Math.round(p.yd))+" higher, so he goes early here":"in line with the field"));
   if(p.md!=null&&Math.abs(p.md)>=5)dl("My board",(p.md<0?Math.abs(Math.round(p.md))+" spots higher than consensus":Math.round(p.md)+" spots lower than consensus"));
@@ -382,7 +389,7 @@ function rowHTML(p){
   else if(p.sev>=2)bd='<span class="sevdot" style="background:'+(p.sev===3?"var(--bad)":"var(--gold)")+'"></span>';
   var h='<div class="row'+(mine?" mine":"")+(op?" op":"")+'" onclick="tapRow('+p.id+')">'+logo(p.t)+
     '<div class="rk num">'+(p.mean?p.rk:"–")+'</div><div class="mid"><div class="nm">'+esc(p.n)+'</div>'+
-    '<div class="mt">'+posChip(p)+'<span class="tr">'+txt+'</span>'+bf+'</div></div>'+
+    '<div class="mt">'+posChip(p)+w1Tag(p)+'<span class="tr">'+txt+'</span>'+bf+'</div></div>'+
     bd+'<span class="caret'+(op?" up":"")+'">▼</span></div>';
   if(op)h+=accHTML(p);
   return h;
@@ -396,6 +403,7 @@ function accHTML(p){
       '<div class="qi"><div class="qil">Yahoo</div><div class="qiv num">'+(p.src.Yahoo||"–")+'</div></div>'+
       '<div class="qi"><div class="qil">'+p.p+'</div><div class="qiv num" style="color:'+(PC[p.p]||"var(--tx)")+'">'+(p.pr||"–")+'</div></div></div>';
     var note=p.why||(p.gap>=8?"Experts are ahead of the market on him.":p.gap<=-8?"The room drafts him earlier than he's ranked.":"Market and experts broadly agree.");
+    if(p.news)note=p.news;
     h+='<div class="acnote">'+esc(note)+'</div>';
   }
   h+='<div class="btns">';
@@ -452,7 +460,7 @@ function searchPane(){
     '<input id="si" placeholder="Search any of 234 players" value="'+esc(q)+'" oninput="setQ(this.value)" '+
     'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'+
     (q?'<span class="sx" onclick="setQ(\'\');document.getElementById(\'si\').value=\'\'">✕</span>':'')+'</div>'+
-    '<div class="chips">'+["ALL","RB","WR","TE","QB","K","DEF","Taken","Mine"].map(function(f){
+    '<div class="chips">'+["ALL","RB","WR","TE","QB","K","DEF","Q Wk1","Taken","Mine"].map(function(f){
       return '<button class="chip'+(sfilt===f?" on":"")+'" onclick="setSF(\''+f+'\')">'+f+'</button>';}).join("")+'</div></div>'+
     '<div id="res">'+results()+'</div>';
   return h;
@@ -463,6 +471,7 @@ function setSF(f){sfilt=f;var e=document.getElementById("res");if(e)e.innerHTML=
 function results(){
   var s=q.trim().toLowerCase();
   var m=P.filter(function(p){
+    if(sfilt==="Q Wk1"&&!p.w1)return false;
     if(sfilt==="Taken"&&!st.gone[p.id])return false;
     if(sfilt==="Mine"&&!isMine(p.id))return false;
     if("RB WR TE QB K DEF".indexOf(sfilt)>=0&&sfilt!=="ALL"&&p.p!==sfilt)return false;
@@ -475,7 +484,7 @@ function results(){
     return '<div class="row'+(mine?" mine":"")+'" onclick="openPlayer('+p.id+',event)" style="'+(gone&&!mine?"opacity:.45":"")+'">'+
       logo(p.t)+'<div class="rk num">'+(p.mean?p.rk:"–")+'</div><div class="mid">'+
       '<div class="nm">'+esc(p.n)+(mine?' <span style="color:var(--ok)">✓</span>':'')+'</div>'+
-      '<div class="mt">'+posChip(p)+'<span class="tr">'+(TNAME[p.t]||p.t)+' · bye '+p.b+
+      '<div class="mt">'+posChip(p)+w1Tag(p)+'<span class="tr">'+(TNAME[p.t]||p.t)+' · bye '+p.b+
       (gone&&!mine?' · <span class="r">taken</span>':'')+'</span></div></div>'+
       (p.sg?'<span class="bdg '+(p.gap>0?"up":"dn")+'">'+(p.gap>0?"+":"")+Math.round(p.gap)+'</span>':'')+
       '<span class="caret">›</span></div>';}).join("");
@@ -551,7 +560,7 @@ function briefPane(){
         h+='<div class="tier"><div class="tierbar" style="background:'+cc+'"></div><span class="tiert" style="color:'+cc+'">'+g[p.sev]+
           '</span><span class="tierc">'+f.filter(function(x){return x.sev===p.sev;}).length+'</span></div>';}
       h+='<div class="nc" onclick="openPlayer('+p.id+',event)">'+logo(p.t)+'<div style="flex:1;min-width:0">'+
-        '<div class="nctop"><span class="ncn">'+esc(p.n)+'</span>'+posChip(p)+
+        '<div class="nctop"><span class="ncn">'+esc(p.n)+'</span>'+posChip(p)+w1Tag(p)+
         (p.mean?'<span class="nctag">rank '+p.rk+'</span>':'')+'</div>'+
         '<div class="ncb">'+esc(p.news)+'</div></div></div>';});
   } else if(seg==="edges"){
