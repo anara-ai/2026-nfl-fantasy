@@ -1,4 +1,4 @@
-var C="draft-v5";
+var C="draft-v6-research-20260905";
 self.addEventListener("install",function(e){
   e.waitUntil(caches.open(C).then(function(c){return c.addAll(["./","./index.html","./data.js","./manifest.json","./apple-touch-icon.png","./icon-192.png","./icon-512.png"]);}).then(function(){return self.skipWaiting();}));
 });

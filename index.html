@@ -282,10 +282,10 @@ function logo(t,sm){
 function posChip(p){return '<span class="pc" style="background:'+(PC[p.p]||"var(--df)")+'">'+p.p+(p.pr||"")+'</span>';}
 function w1Tag(p){if(!p.w1)return "";
   var cls=p.w1==="Q"?"w1q":"w1o";
-  return '<span class="w1 '+cls+'">'+(p.w1==="Q"?"Q WK1":p.w1)+'</span>';}
+  return '<span class="w1 '+cls+'" title="Yahoo status snapshot, September 5; not a final game designation">'+(p.w1==="Q"?"Y! Q":esc(p.w1))+'</span>';}
 
 function mark(id,mine){
-  var p=byId[id];if(!p)return;
+  var p=byId[id];if(!p||st.gone[id])return;
   hist.push(JSON.stringify(st));if(hist.length>60)hist.shift();
   st.gone[id]=1;st.order.push(id);
   if(mine&&!isMine(id))st.mine.push(id);
@@ -308,8 +308,9 @@ function needs(){var h={QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
   st.mine.forEach(function(i){var p=byId[i];if(p)h[p.p]=(h[p.p]||0)+1;});
   var req={QB:1,RB:2,WR:2,TE:1,K:1,DEF:1},o=[];
   for(var k in req)if(h[k]<req[k])o.push({p:k,n:req[k]-h[k],hot:h[k]===0&&"RB WR".indexOf(k)>=0});
+  if(Math.max(0,h.RB-2)+Math.max(0,h.WR-2)+Math.max(0,h.TE-1)<1)o.push({p:"FLEX",n:1,hot:false});
   return{have:h,missing:o};}
-function avail(){return P.filter(function(p){return !st.gone[p.id]&&p.mean;}).sort(function(a,b){return a.rk-b.rk;});}
+function avail(){return P.filter(function(p){return !st.gone[p.id]&&p.mean&&!p.avoid;}).sort(function(a,b){return a.rk-b.rk;});}
 
 /* ---------- player sheet ---------- */
 function openPlayer(id,ev){
@@ -327,7 +328,7 @@ function playerView(p){
     '<img class="herologo" src="https://a.espncdn.com/i/teamlogos/nfl/500/'+slug+'.png" onerror="this.remove()" alt="">'+
     '<div class="hpos">'+logo(p.t,true)+'<span class="hposl">'+(TNAME[p.t]||p.t)+' · '+p.p+(p.pr?" "+p.pr:"")+'</span></div>'+
     '<div class="hname">'+esc(p.n)+'</div>'+
-    '<div class="hmeta">'+(p.w1?w1Tag(p)+' &nbsp;':'')+'Bye week '+p.b+(p.rd?' · typically goes round '+p.rd:'')+
+    '<div class="hmeta">'+(p.w1?w1Tag(p)+' &nbsp;':'')+'Bye '+(p.b||'–')+(p.rd?' · ADP round '+p.rd+' (10 teams)':'')+
     (mine?'<br><span style="color:var(--ok);font-weight:700">ON YOUR TEAM</span>':(gone?'<br><span style="color:var(--bad);font-weight:600">Taken by someone else</span>':''))+'</div></div>';
 
   if(p.mean){
@@ -335,25 +336,21 @@ function playerView(p){
       '<div class="stat"><div class="statv num">'+p.rk+'</div><div class="statl">Overall</div></div>'+
       '<div class="stat"><div class="statv num" style="color:'+(PC[p.p]||"var(--tx)")+'">'+(p.pr||"–")+'</div><div class="statl">'+p.p+' rank</div></div>'+
       '<div class="stat"><div class="statv num" style="color:'+(p.gap>0?"var(--ok)":p.gap<0?"var(--bad)":"var(--tx)")+'">'+
-        (p.gap===null?"–":(p.gap>0?"+":"")+Math.round(p.gap))+'</div><div class="statl">Value</div></div>'+
-      '<div class="stat"><div class="statv num">'+p.sd+'</div><div class="statl">Spread</div></div></div>';
+        (p.gap===null||p.adpCaution?"–":(p.gap>0?"+":"")+Math.round(p.gap))+'</div><div class="statl">Yahoo gap</div></div>'+
+      '<div class="stat"><div class="statv num">'+p.sd.toFixed(1)+'</div><div class="statl">Expert SD</div></div></div>';
     var vc,vt;
-    if(p.gap!==null&&p.gap>=8){vc="v-up";vt="Value. Experts rank him about "+Math.round(p.gap)+" spots higher than the market drafts him. Take him at ADP and you're getting a discount.";}
-    else if(p.gap!==null&&p.gap<=-8){vc="v-dn";vt="Reach. The room drafts him roughly "+Math.abs(Math.round(p.gap))+" spots before experts rank him. Let someone else pay.";}
-    else if(p.sd>=10){vc="v-nu";vt="Contested. Boards range from "+p.lo+" to "+p.hi+" — somebody has a strong take here, so trust your own read.";}
-    else{vc="v-nu";vt="Fairly priced. Market and experts land within a few spots of each other.";}
+    if(p.adpCaution){vc="v-dn";vt="Stale-price caution. Historical ADP may predate this availability change. No value badge or automatic recommendation; read the current status first.";}
+    else if(p.gap===null){vc="v-nu";vt="No usable Yahoo ADP in this snapshot. Rank is expert consensus; no market discount is inferred.";}
+    else if(p.gap>=8){vc="v-up";vt="Price watch: Yahoo drafts have selected him about "+Math.round(p.gap)+" picks later than ECR. Check role and health; this does not predict availability in your room.";}
+    else if(p.gap<=-8){vc="v-dn";vt="Cost watch: Yahoo drafts have selected him about "+Math.abs(Math.round(p.gap))+" picks earlier than ECR. Decide whether the roster benefit justifies that price.";}
+    else{vc="v-nu";vt="Yahoo ADP and ECR are within eight picks. Treat small differences as tie-breakers, not a measured advantage.";}
     h+='<div class="verdict '+vc+'">'+esc(vt)+'</div>';
-    var ks=["Yahoo","ADP","FFC","CBS","JE","DS","Mine"],vals=[];
-    ks.forEach(function(k){if(p.src[k])vals.push(p.src[k]);});
-    var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals),sp=Math.max(hi-lo,1);
-    h+='<div class="blk"><div class="blkh">Where each board has him</div>';
-    ks.forEach(function(k){var v=p.src[k];
-      if(!v){h+='<div class="sbar"><div class="sbl">'+k+'</div><div class="sbt"></div><div class="sbv" style="color:var(--t3)">–</div></div>';return;}
-      var pct=10+((hi-v)/sp)*90,col=v<p.mean-1?"var(--ok)":(v>p.mean+1?"var(--bad)":"var(--s5)");
-      h+='<div class="sbar"><div class="sbl">'+k+'</div><div class="sbt">'+
-        '<div class="sbf" style="width:'+pct.toFixed(1)+'%;background:'+col+';opacity:.9"></div></div><div class="sbv num">'+v+'</div></div>';});
-    h+='<div style="font:400 11.5px/1.55 -apple-system,sans-serif;color:var(--t3);margin-top:11px">Longer bar means ranked higher. Green beats his '+p.mean+' average, red sits below it. Range '+p.lo+'–'+p.hi+' across '+p.ns+' boards.</div></div>';
-  } else h+='<div class="verdict v-nu">Kicker and defence ordering comes from fewer sources than the skill positions. Take one late and stream on matchup.</div>';
+  } else h+='<div class="verdict v-nu">'+(p.p==="K"||p.p==="DEF"?'Season-long positional ECR order. Draft one late; compare current job, health and opening matchup.':'No overall ECR available. Searchable for tracking; excluded from automatic recommendations.')+'</div>';
+  h+='<div class="blk"><div class="blkh">Rank versus draft price · Sep 5</div>';
+  [["Half-PPR ECR",p.src.ECR],["Yahoo public rank",p.src.Yahoo],["Yahoo all-drafts ADP",p.src.ADP]].forEach(function(s){
+    h+='<div class="dl"><div class="dlk">'+s[0]+'</div><div class="dlv num">'+(s[1]==null?'–':s[1])+'</div></div>';});
+  if(p.mean)h+='<div class="mini" style="padding:12px 0 0">Expert range '+p.lo+'–'+p.hi+'. Yahoo ADP is a public standard-settings pool, not a ten-team-only sample or a forecast for your next pick.</div>';
+  h+='</div>';
 
   if(p.news){var lbl=p.sev===3?"Major concern":p.sev===2?"Real risk":p.sev===0?"Trending up":"Monitor";
     h+='<div class="newsc n'+p.sev+'"><div class="newsh">'+lbl+'</div>'+esc(p.news)+'</div>';}
@@ -361,17 +358,18 @@ function playerView(p){
   h+='<div class="blk"><div class="blkh">Detail</div>';
   function dl(k,v){if(v==null||v==="")return;h+='<div class="dl"><div class="dlk">'+k+'</div><div class="dlv">'+v+'</div></div>';}
   dl("Team",(TNAME[p.t]||p.t)+" · bye "+p.b);
-  if(p.w1)dl("Week 1",p.w1==="Q"?'<span style="color:var(--gold)">Questionable</span>':
+  if(p.w1)dl("Yahoo status",p.w1==="Q"?'<span style="color:var(--gold)">Q · verify game-week report</span>':
     p.w1==="OUT"?'<span style="color:var(--bad)">Out</span>':'<span style="color:var(--bad)">'+p.w1+'</span>');
   if(p.tier)dl("Tier",esc(p.tname||("Tier "+p.tier))+" · "+p.tsize+" players");
-  if(p.yd!=null)dl("Your Yahoo room",p.yd>0?"ranks him "+Math.round(p.yd)+" lower than the field, so he lasts here":(p.yd<0?"ranks him "+Math.abs(Math.round(p.yd))+" higher, so he goes early here":"in line with the field"));
-  if(p.md!=null&&Math.abs(p.md)>=5)dl("My board",(p.md<0?Math.abs(Math.round(p.md))+" spots higher than consensus":Math.round(p.md)+" spots lower than consensus"));
-  if(p.inj)dl("Injury risk",p.inj+"% chance of missing time");
   if(p.hc)dl("Handcuff",'<span style="color:'+(byName[p.hc]&&st.gone[byName[p.hc].id]?"var(--t3)":"var(--tx)")+'">'+esc(p.hc)+(byName[p.hc]&&st.gone[byName[p.hc].id]?" (gone)":"")+'</span>');
   if(p.hcof)dl("Backing up",esc(p.hcof));
   if(p.cont)dl("Backfield",'<span style="color:var(--gold)">'+esc(p.cont)+'</span>');
   if(p.why)dl("Read",esc(p.why));
-  h+='</div><div class="acts">';
+  dl("Checked",esc(p.checked||D.updated));
+  h+='</div>';
+  if(p.links&&p.links.length){h+='<div class="blk"><div class="blkh">Sources · opens in browser</div>';
+    p.links.forEach(function(s){h+='<a style="display:block;color:var(--acc);padding:8px 0" target="_blank" rel="noopener noreferrer" href="'+esc(s[1])+'">'+esc(s[0])+' ↗</a>';});h+='</div>';}
+  h+='<div class="acts">';
   if(gone)h+='<div class="act a2" onclick="unmark('+p.id+');closeSheet()">Put back on board</div>';
   else h+='<div class="act a1" onclick="mark('+p.id+',true)">Draft to my team</div><div class="act a3" onclick="mark('+p.id+',false)">Mark gone</div>';
   return h+'</div>';
@@ -398,9 +396,9 @@ function accHTML(p){
   var h='<div class="acc"><div class="accin">';
   if(p.mean){
     h+='<div class="qs">'+
-      '<div class="qi"><div class="qil">Value</div><div class="qiv num" style="color:'+(p.gap>0?"var(--ok)":p.gap<0?"var(--bad)":"var(--tx)")+'">'+(p.gap==null?"–":(p.gap>0?"+":"")+Math.round(p.gap))+'</div></div>'+
+      '<div class="qi"><div class="qil">Yahoo gap</div><div class="qiv num" style="color:'+(p.gap>0?"var(--ok)":p.gap<0?"var(--bad)":"var(--tx)")+'">'+(p.gap==null||p.adpCaution?"–":(p.gap>0?"+":"")+Math.round(p.gap))+'</div></div>'+
       '<div class="qi"><div class="qil">Range</div><div class="qiv num">'+p.lo+'–'+p.hi+'</div></div>'+
-      '<div class="qi"><div class="qil">Yahoo</div><div class="qiv num">'+(p.src.Yahoo||"–")+'</div></div>'+
+      '<div class="qi"><div class="qil">Yahoo ADP</div><div class="qiv num">'+(p.src.ADP||"–")+'</div></div>'+
       '<div class="qi"><div class="qil">'+p.p+'</div><div class="qiv num" style="color:'+(PC[p.p]||"var(--tx)")+'">'+(p.pr||"–")+'</div></div></div>';
     var note=p.why||(p.gap>=8?"Experts are ahead of the market on him.":p.gap<=-8?"The room drafts him earlier than he's ranked.":"Market and experts broadly agree.");
     if(p.news)note=p.news;
@@ -418,19 +416,20 @@ function tapRow(id){accId=accId===id?null:id;buzz(6);render();}
 function boardPane(){
   var u=until(),live=u!==null&&u<=1;
   var h='<div class="hd'+(live?" live":"")+'"><div class="hdtop"><div>'+
-    '<div class="kick">'+(live?'<span class="livedot"></span>':'')+'Pick '+(made()+1)+' · Round '+Math.min(15,Math.floor(made()/10)+1)+'</div>'+
+    '<div class="kick">'+(live?'<span class="livedot"></span>':'')+'Pick '+(made()+1)+' · Round '+Math.min(D.league.rounds,Math.floor(made()/D.league.teams)+1)+'</div>'+
     '<div class="big">'+(u===null?"Draft complete":u===0?"You're on the clock":u===1?"You're up next":"Up in "+u+" picks")+'</div></div>'+
     '<span class="pill'+(live?" gold":"")+'">'+(nextPick()?"pick "+nextPick():"—")+'</span></div>'+
-    '<div class="prog"><i style="width:'+Math.min(100,made()/150*100).toFixed(1)+'%"></i></div>'+
+    '<div class="prog"><i style="width:'+Math.min(100,made()/(D.league.rounds*D.league.teams)*100).toFixed(1)+'%"></i></div>'+
+    '<div style="font-size:11px;color:var(--t2);margin-top:8px">Research '+esc(D.updated)+' · 14 rounds</div>'+
     '<div class="filters">'+["ALL","RB","WR","TE","QB","K/D"].map(function(f){
       return '<button class="fb'+(filter===f?" on":"")+'" onclick="setF(\''+f+'\')">'+f+'</button>';}).join("")+'</div></div>';
   var ra=runAlert();
   if(ra)h+='<div class="alertbar">⚡ '+esc(ra)+'</div>';
   var av=avail();
   if(av.length){
-    var nd=needs().missing.map(function(x){return x.p;}),bn=av.filter(function(p){return nd.indexOf(p.p)>=0;})[0],top=av[0];
+    var nd=needs().missing.map(function(x){return x.p;}),bn=av.filter(function(p){return nd.indexOf(p.p)>=0||(nd.indexOf("FLEX")>=0&&["RB","WR","TE"].indexOf(p.p)>=0);})[0],top=av[0];
     h+='<div class="best" onclick="openPlayer('+top.id+',event)">'+logo(top.t)+'<div style="flex:1;min-width:0">'+
-      '<div class="bestk">Best available</div><div class="bestn">'+esc(top.n)+'</div>'+
+      '<div class="bestk">Highest ECR available · check roster fit</div><div class="bestn">'+esc(top.n)+'</div>'+
       '<div class="bestm">'+top.p+top.pr+' · '+(TNAME[top.t]||top.t)+' · rank '+top.rk+
       (bn&&bn.id!==top.id?'<br>You still need '+nd.join(", ")+' — best is '+esc(bn.n):'')+'</div></div>'+
       '<span class="caret">›</span></div>';
@@ -457,10 +456,10 @@ function setF(f){filter=f;accId=null;render();window.scrollTo(0,0);}
 /* ---------- search tab ---------- */
 function searchPane(){
   var h='<div class="srchbar"><div class="sfield"><span style="color:var(--t3);font-size:16px">⌕</span>'+
-    '<input id="si" placeholder="Search any of 234 players" value="'+esc(q)+'" oninput="setQ(this.value)" '+
+    '<input id="si" placeholder="Search '+P.length+' players and teams" value="'+esc(q)+'" oninput="setQ(this.value)" '+
     'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'+
     (q?'<span class="sx" onclick="setQ(\'\');document.getElementById(\'si\').value=\'\'">✕</span>':'')+'</div>'+
-    '<div class="chips">'+["ALL","RB","WR","TE","QB","K","DEF","Q Wk1","Taken","Mine"].map(function(f){
+    '<div class="chips">'+["ALL","RB","WR","TE","QB","K","DEF","Status","Taken","Mine"].map(function(f){
       return '<button class="chip'+(sfilt===f?" on":"")+'" onclick="setSF(\''+f+'\')">'+f+'</button>';}).join("")+'</div></div>'+
     '<div id="res">'+results()+'</div>';
   return h;
@@ -471,7 +470,7 @@ function setSF(f){sfilt=f;var e=document.getElementById("res");if(e)e.innerHTML=
 function results(){
   var s=q.trim().toLowerCase();
   var m=P.filter(function(p){
-    if(sfilt==="Q Wk1"&&!p.w1)return false;
+    if(sfilt==="Status"&&!p.w1)return false;
     if(sfilt==="Taken"&&!st.gone[p.id])return false;
     if(sfilt==="Mine"&&!isMine(p.id))return false;
     if("RB WR TE QB K DEF".indexOf(sfilt)>=0&&sfilt!=="ALL"&&p.p!==sfilt)return false;
@@ -509,18 +508,16 @@ function teamPane(){
       (p?logo(p.t):'<div class="emptyslot"></div>')+'<div class="sl">'+s[1]+'</div>'+
       '<div class="sv'+(p?"":" e")+'">'+(p?esc(p.n)+'<div class="svm">'+(TNAME[p.t]||p.t)+' · bye '+p.b+'</div>':"—")+'</div>'+
       (p?'<span class="caret">›</span>':'')+'</div>';});
-  h+='<div class="blkh" style="padding:22px 15px 10px">Bench · '+bench.length+'</div>';
+  h+='<div class="blkh" style="padding:22px 15px 10px">Bench · '+bench.length+' / 5</div>';
   if(!bench.length)h+='<div class="mini">Nothing on the bench yet.</div>';
   bench.forEach(function(p){h+='<div class="slot" onclick="openPlayer('+p.id+',event)">'+logo(p.t)+
     '<div class="sl">BN</div><div class="sv">'+esc(p.n)+'<div class="svm">'+p.p+' · '+(TNAME[p.t]||p.t)+' · bye '+p.b+'</div></div><span class="caret">›</span></div>';});
-  var bb=myByes(),tr=[];for(var w in bb)if(bb[w]>=3)tr.push("Week "+w+" — "+bb[w]+" of your skill starters are off");
+  var bb=myByes(),tr=[];for(var w in bb)if(bb[w]>=3)tr.push("Week "+w+" — "+bb[w]+" rostered skill players are off (includes bench)");
   h+='<div class="blk"><div class="blkh">Bye conflicts</div>';
   if(tr.length)tr.forEach(function(t){h+='<div class="verdict v-dn" style="margin:0 0 9px">'+esc(t)+'</div>';});
-  else h+='<div class="mini" style="padding:0">No week has three or more of your skill starters off.</div>';
+  else h+='<div class="mini" style="padding:0">No week has three or more of your rostered skill players off.</div>';
   h+='</div>';
-  var gaps=mine.filter(function(p){return p.p==="RB"&&p.hc&&byName[p.hc]&&!st.gone[byName[p.hc].id]&&p.inj&&p.inj>=50;});
-  if(gaps.length){h+='<div class="blk"><div class="blkh">Handcuffs still free</div>';
-    gaps.forEach(function(p){h+='<div class="verdict v-nu" style="margin:0 0 9px">'+esc(p.n)+' carries '+p.inj+'% injury risk. <b style="color:var(--tx)">'+esc(p.hc)+'</b> is still on the board.</div>';});h+='</div>';}
+  if(bench.length>5)h+='<div class="verdict v-dn">More than five bench players are tracked. Confirm IR moves and legal roster size in Yahoo.</div>';
   return h+'<div class="blk"><div class="blkh">Reset</div><div class="bt b3" onclick="resetAll()">Clear the whole draft</div></div>';
 }
 function resetAll(){if(confirm("Clear every pick and start over?")){st={gone:{},mine:[],order:[]};hist=[];save();render();toast("Draft reset");}}
@@ -564,7 +561,7 @@ function briefPane(){
         (p.mean?'<span class="nctag">rank '+p.rk+'</span>':'')+'</div>'+
         '<div class="ncb">'+esc(p.news)+'</div></div></div>';});
   } else if(seg==="edges"){
-    h+='<div class="mini" style="padding:0 15px 6px">What falls out of comparing seven boards against each other.</div>';
+    h+='<div class="mini" style="padding:0 15px 6px">Draft judgment for your format, informed by ECR, Yahoo prices and current reports.</div>';
     D.insights.forEach(function(x,i){h+='<div class="edge"><div class="edgen num">'+(i+1<10?"0":"")+(i+1)+'</div>'+
       '<div class="edgeh">'+esc(x.h)+'</div><div class="edgeb">'+esc(x.b)+'</div></div>';});
   } else if(seg==="byes"){
@@ -574,15 +571,15 @@ function briefPane(){
       h+='<div class="byec"><div class="byew num'+(t.length>=4?" trap":"")+'">W'+w+'</div><div class="byet">'+
         t.map(function(x){return logo(x,true);}).join("")+'</div></div>';});
   } else {
-    h+='<div class="hgroup" style="padding-top:4px"><div class="hg1">Seven boards</div>'+
-      '<div class="hg2">Every rank here is their average. Nothing is one analyst\'s opinion.</div></div>';
+    h+='<div class="hgroup" style="padding-top:4px"><div class="hg1">Evidence and limits</div>'+
+      '<div class="hg2">Half-PPR ECR for rank. Yahoo for price. Dated reports for status. Strategy notes are judgment; this is a research snapshot.<br><a style="color:var(--acc)" href="https://github.com/anara-ai/2026-nfl-fantasy/blob/main/RESEARCH.md" target="_blank" rel="noopener noreferrer">Full draft guide and scoring ↗</a></div></div>';
     D.sources.forEach(function(s){h+='<div class="nc"><div style="flex:1"><div class="nctop">'+
       '<span class="ncn" style="font-size:14.5px">'+esc(s[0])+'</span><span class="nctag">'+esc(s[2])+'</span></div>'+
-      '<div class="ncb" style="margin-top:6px"><span style="color:var(--t3)">'+esc(s[1])+'</span><br>'+esc(s[3])+'</div></div></div>';});
+      '<div class="ncb" style="margin-top:6px"><span style="color:var(--t3)">'+esc(s[1])+'</span><br>'+esc(s[3])+(s[4]?'<br><a style="color:var(--acc)" href="'+esc(s[4])+'" target="_blank" rel="noopener noreferrer">Open source ↗</a>':'')+'</div></div></div>';});
     h+='<div class="hgroup"><div class="hg1">Reading the numbers</div></div>';
     D.method.forEach(function(m){h+='<div class="edge" style="padding:16px 15px"><div class="edgeh" style="font-size:15px;margin:0 0 8px">'+
       esc(m[0])+'</div><div class="edgeb" style="font-size:13.5px">'+esc(m[1])+'</div></div>';});
-    h+='<div class="hgroup"><div class="hg1">Your scoring</div><div class="hg2">Half PPR, 4-point passing touchdowns, and a rushing yard is worth 2.5× a passing yard. That lifts rushing quarterbacks and compresses the position, which is why waiting on QB is right. Kickers get 4 points from 40–49 and 5 from 50+, so leg strength matters more than usual. Ten teams keeps waivers useful, so draft ceiling over floor.</div></div>';
+    h+='<div class="hgroup"><div class="hg1">Your scoring</div><div class="hg2">Half PPR; passing 25 yards/point, TD 4, INT −1. Rushing/receiving 10 yards/point, TD 6. Fumbles lost −2. Rushing production helps QBs; −1 interceptions is gentler than −2 formats. Kicker distance scoring is 3/4/5 points with PAT 1. Full supplied scoring is recorded in the research guide. Ten teams and five bench slots favor ceiling and reduce the need for routine backup QBs/TEs.</div></div>';
     D.changelog.forEach(function(c){h+='<div class="edge"><div class="edgeh" style="font-size:15px">Update '+esc(c[0])+'</div>'+
       '<div class="edgeb" style="font-size:13.5px">'+esc(c[1])+'</div></div>';});
     h+='<div class="mini" style="padding:20px 15px 40px">Picks are stored on this device only. Data refreshes replace rankings without touching them.</div>';
